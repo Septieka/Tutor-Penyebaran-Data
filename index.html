@@ -19,11 +19,11 @@
   html,body{margin:0;padding:0;height:100%;}
   body{
     font-family:'Segoe UI', system-ui, -apple-system, sans-serif;
-    background:#0b141a;
+    background:transparent;
     display:flex;
-    align-items:center;
-    justify-content:center;
-    min-height:100vh;
+    align-items:flex-start;
+    justify-content:flex-start;
+    min-height:auto;
   }
   .app{
     width:288px;
@@ -34,7 +34,7 @@
     overflow:hidden;
     display:flex;
     flex-direction:column;
-    box-shadow:0 20px 50px rgba(0,0,0,0.45);
+    box-shadow:0 4px 14px rgba(0,0,0,0.18);
     border-radius:14px;
     transition:width 0.35s ease, height 0.35s ease, max-width 0.35s ease, max-height 0.35s ease;
   }
@@ -190,12 +190,12 @@
 <script>
 /* ========================= KONFIGURASI GURU ========================= */
 // 1) Isi dengan API key Groq kamu dari https://console.groq.com/keys (diawali "gsk_")
-const GROQ_API_KEY = "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";
+const GROQ_API_KEY = "ISI_API_KEY_GROQ_DI_SINI";
 // 2) Nama model gratis Groq (cek daftar terbaru di console.groq.com/docs/models)
 const GROQ_MODEL = "llama-3.3-70b-versatile";
 // 3) URL Web App dari Google Apps Script (lihat panduan) — kosongkan "" jika belum siap,
 //    chatbot tetap jalan tanpa pencatatan transkrip.
-const LOG_WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbzkfuf4HQ48wnWnhU9lEJ6SQUm9ozAFm5jvb0yjvspNIbRonClv8eeQwc4vlldvCmpw/exec";
+const LOG_WEBHOOK_URL = "ISI_URL_WEB_APP_GOOGLE_APPS_SCRIPT_DI_SINI";
 /* ====================================================================== */
 
 const SYSTEM_PROMPT = `
