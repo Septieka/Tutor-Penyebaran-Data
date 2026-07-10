@@ -189,10 +189,15 @@
 
 <script>
 /* ========================= KONFIGURASI GURU ========================= */
-// Cukup SATU baris ini yang perlu diisi: URL Web App dari Google Apps Script.
-// API key Groq TIDAK lagi disimpan di sini — sudah dipindah ke Apps Script
+// 1) URL Web App dari Google Apps Script.
+// API key Groq TIDAK disimpan di sini — sudah dipindah ke Apps Script
 // (lihat file CatatTranskrip.gs) supaya tidak bisa bocor lewat GitHub publik.
-const BACKEND_URL = "https://script.google.com/macros/s/AKfycbwSLh-GzSKjGV2ATb6SmpGY7rMm03Ty0CcXcrWQr6bzT-NFCNGEMxPBcpBNg_5WdEKl/exec";
+const BACKEND_URL = "ISI_URL_WEB_APP_GOOGLE_APPS_SCRIPT_DI_SINI";
+// 2) Token rahasia — HARUS SAMA PERSIS dengan SECRET_TOKEN yang Anda simpan
+//    di Script Properties Apps Script. Ini bukan pengaman sempurna (tetap
+//    terlihat kalau ada yang membuka kode sumber halaman ini), tapi cukup
+//    untuk mencegah penyalahgunaan tidak sengaja/otomatis lewat URL saja.
+const APP_TOKEN = "ISI_TOKEN_RAHASIA_YANG_SAMA_DENGAN_SCRIPT_PROPERTIES";
 /* ====================================================================== */
 
 // Catatan: SYSTEM_PROMPT (aturan scaffolding tutor) sekarang ada di server
@@ -248,6 +253,7 @@ async function panggilBackend(onRetryInfo){
         headers: { 'Content-Type': 'text/plain' }, // hindari CORS preflight ke Apps Script
         body: JSON.stringify({
           aksi: 'chat',
+          token: APP_TOKEN,
           riwayat,
           nama: namaSiswa,
           kelas: kelasSiswa,
