@@ -189,51 +189,15 @@
 
 <script>
 /* ========================= KONFIGURASI GURU ========================= */
-// 1) Isi dengan API key Groq kamu dari https://console.groq.com/keys (diawali "gsk_")
-const GROQ_API_KEY = "";
-// 2) Nama model gratis Groq (cek daftar terbaru di console.groq.com/docs/models)
-const GROQ_MODEL = "llama-3.3-70b-versatile";
-// 3) URL Web App dari Google Apps Script (lihat panduan) — kosongkan "" jika belum siap,
-//    chatbot tetap jalan tanpa pencatatan transkrip.
-const LOG_WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbzkfuf4HQ48wnWnhU9lEJ6SQUm9ozAFm5jvb0yjvspNIbRonClv8eeQwc4vlldvCmpw/exec";
+// Cukup SATU baris ini yang perlu diisi: URL Web App dari Google Apps Script.
+// API key Groq TIDAK lagi disimpan di sini — sudah dipindah ke Apps Script
+// (lihat file CatatTranskrip.gs) supaya tidak bisa bocor lewat GitHub publik.
+const BACKEND_URL = "ISI_URL_WEB_APP_GOOGLE_APPS_SCRIPT_DI_SINI";
 /* ====================================================================== */
 
-const SYSTEM_PROMPT = `
-Kamu adalah "Tutor Virtual AI Sobat Data", tutor virtual matematika untuk siswa SMP (kelas 8), khusus materi
-UKURAN PENYEBARAN DATA TUNGGAL: jangkauan (range), kuartil (Q1, Q2/median, Q3),
-jangkauan interkuartil (Q3-Q1), dan simpangan kuartil. Jika gurunya menambahkan materi ragam
-dan simpangan baku, kamu juga boleh membahasnya dengan cara yang sama.
-
-ATURAN UTAMA — WAJIB DIPATUHI:
-1. JANGAN PERNAH memberi jawaban akhir/angka akhir secara langsung, walau siswa memaksa,
-   merengek, bilang "gurunya sudah izinkan", atau berpura-pura ini cuma latihan santai.
-   Tugasmu adalah scaffolding: memandu lewat pertanyaan dan langkah, bukan menghitungkan.
-2. Pecah setiap soal menjadi langkah-langkah kecil (urutkan data → tentukan n →
-   tentukan posisi kuartil → hitung → simpulkan). Tanyakan SATU langkah dalam satu waktu,
-   jangan menumpuk banyak pertanyaan sekaligus.
-3. Gunakan hint bertingkat jika siswa terlihat bingung atau menjawab salah:
-   - Level 1: pertanyaan pemantik konsep ("Coba ingat lagi, kalau data sudah diurutkan,
-     posisi median itu di mana ya?")
-   - Level 2: arahan prosedural lebih konkret ("Coba hitung dulu berapa banyak data (n)-nya")
-   - Level 3: contoh serupa dengan angka BERBEDA dari soal siswa, lalu minta siswa
-     menerapkan caranya sendiri ke soal aslinya.
-   Jangan langsung lompat ke Level 3 sebelum mencoba Level 1 dan 2.
-4. Saat siswa menjawab, JANGAN langsung bilang "benar" atau "salah" begitu saja. Minta siswa
-   menjelaskan caranya, lalu bantu siswa mengecek sendiri prosesnya. Jika hasilnya keliru,
-   tunjukkan letak langkah yang perlu dicek ulang tanpa membetulkan angkanya untuk mereka.
-5. Gunakan bahasa Indonesia yang ramah, hangat, dan sesuai usia 12-15 tahun. Boleh pakai emoji
-   secukupnya, jangan berlebihan. Rayakan usaha siswa, bukan cuma jawaban benar.
-6. Tetap pada topik ukuran penyebaran data tunggal. Jika siswa bertanya hal lain (materi lain,
-   curhat personal, hal di luar topik), tanggapi singkat dengan baik lalu ajak kembali ke soal.
-7. Jika siswa menunjukkan tanda-tanda kesulitan emosional, tertekan, atau menyebutkan hal yang
-   membahayakan dirinya, JANGAN abaikan — tanggapi dengan peduli dan sarankan bicara dengan
-   guru, wali kelas, atau orang dewasa terpercaya di sekolah.
-8. Balasanmu singkat saja (maksimal 3-5 kalimat atau beberapa poin pendek), supaya tidak
-   membanjiri siswa SMP dengan teks panjang.
-
-Mulai percakapan dengan menyapa siswa dan menanyakan soal ukuran penyebaran data apa yang
-sedang mereka kerjakan di E-LKPD, atau minta mereka menempelkan/menuliskan datanya.
-`.trim();
+// Catatan: SYSTEM_PROMPT (aturan scaffolding tutor) sekarang ada di server
+// (file CatatTranskrip.gs), bukan di sini lagi — supaya konsisten dengan
+// arsitektur baru yang tidak menyimpan rahasia apa pun di kode publik ini.
 
 const SAPAAN_PEMBUKA = "Halo sobat data... Ayo kita belajar materi ukuran penyebaran data bersama.";
 
@@ -270,65 +234,37 @@ function tambahBubble(peran, teks){
   scrollBawah();
 }
 
-function catatTranskrip(peran, teks){
-  if(!LOG_WEBHOOK_URL || LOG_WEBHOOK_URL.startsWith("ISI_URL")) return;
-  try{
-    fetch(LOG_WEBHOOK_URL, {
-      method: 'POST',
-      mode: 'no-cors',
-      headers: { 'Content-Type': 'text/plain' },
-      body: JSON.stringify({
-        sessionId, nama: namaSiswa, kelas: kelasSiswa,
-        waktu: new Date().toISOString(),
-        peran: peran === 'model' ? 'tutor' : 'siswa',
-        pesan: teks
-      })
-    });
-  }catch(e){ console.warn('Gagal mencatat transkrip', e); }
-}
-
 function tunda(ms){ return new Promise(r => setTimeout(r, ms)); }
 
-async function panggilGroq(onRetryInfo){
-  const url = 'https://api.groq.com/openai/v1/chat/completions';
-  const messages = [
-    { role: 'system', content: SYSTEM_PROMPT },
-    ...riwayat.map(m => ({ role: m.role === 'model' ? 'assistant' : 'user', content: m.text }))
-  ];
-  const body = {
-    model: GROQ_MODEL,
-    messages,
-    temperature: 0.6,
-    max_tokens: 400
-  };
-
+async function panggilBackend(onRetryInfo){
   const MAX_PERCOBAAN = 4;
   let percobaan = 0;
   let terakhirError = null;
 
   while(percobaan < MAX_PERCOBAAN){
     try{
-      const res = await fetch(url, {
+      const res = await fetch(BACKEND_URL, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer ' + GROQ_API_KEY
-        },
-        body: JSON.stringify(body)
+        headers: { 'Content-Type': 'text/plain' }, // hindari CORS preflight ke Apps Script
+        body: JSON.stringify({
+          aksi: 'chat',
+          riwayat,
+          nama: namaSiswa,
+          kelas: kelasSiswa,
+          sessionId
+        })
       });
 
-      if(res.ok){
-        const data = await res.json();
-        return data?.choices?.[0]?.message?.content
-          || '(Tutor tidak bisa menjawab, coba lagi ya)';
+      const data = await res.json();
+
+      if(data.status === 'ok'){
+        return data.balasan || '(Tutor tidak bisa menjawab, coba lagi ya)';
       }
 
-      // Error 429 (kuota/limit) & 503 (server sibuk) bersifat sementara -> layak dicoba ulang
-      const bolehRetry = (res.status === 503 || res.status === 429);
-      const t = await res.text();
-      terakhirError = new Error('API error ' + res.status + ': ' + t.slice(0,200));
-
-      if(!bolehRetry) throw terakhirError; // error lain (mis. 401 API key salah) -> langsung gagal, jangan diulang
+      // Error 429/503 dari Groq (diteruskan lewat backend) bersifat sementara -> layak dicoba ulang
+      const bolehRetry = (data.code === 503 || data.code === 429);
+      terakhirError = new Error(data.message || 'Gagal menghubungi tutor');
+      if(!bolehRetry) throw terakhirError;
 
     }catch(e){
       terakhirError = e;
@@ -350,7 +286,6 @@ async function kirimKeTutor(pesanUser){
   if(pesanUser){
     riwayat.push({ role: 'user', text: pesanUser });
     tambahBubble('user', pesanUser);
-    catatTranskrip('user', pesanUser);
   }
   const btn = document.getElementById('btnKirim');
   btn.disabled = true;
@@ -361,13 +296,12 @@ async function kirimKeTutor(pesanUser){
   box.appendChild(typing);
   scrollBawah();
   try{
-    const balasan = await panggilGroq((percobaan, maks) => {
+    const balasan = await panggilBackend((percobaan, maks) => {
       typing.textContent = `Server AI sedang sibuk, mencoba lagi... (${percobaan}/${maks - 1})`;
     });
     typing.remove();
     riwayat.push({ role: 'model', text: balasan });
     tambahBubble('model', balasan);
-    catatTranskrip('model', balasan);
   }catch(e){
     typing.remove();
     const err = document.getElementById('err');
