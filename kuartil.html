@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<title>Kalkulator Kuartil</title>
+<style>
+  :root{
+    --bg: #ffffff;
+    --ink: #1a1a1a;
+    --dim: #9a9a9a;
+    --line: #e6e6e6;
+    --accent: #3a3a3a;
+    --q1: #b5763a;
+    --q2: #2f7a7a;
+    --q3: #a94b4b;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background: var(--bg);
+    color:var(--ink);
+    font-family: -apple-system, 'Segoe UI', sans-serif;
+    min-height:100vh;
+    padding: 28px 16px;
+    font-size:14px;
+  }
+  .wrap{max-width:480px;margin:0 auto;}
+
+  h1{
+    font-size: 16px;
+    margin: 0 0 20px;
+    font-weight: 600;
+    letter-spacing:.01em;
+  }
+
+  .card{
+    border:1px solid var(--line);
+    border-radius:12px;
+    padding:18px;
+  }
+  .card + .card{margin-top:16px;}
+
+  label{
+    display:block;
+    font-size:11.5px;
+    color:var(--dim);
+    margin-bottom:6px;
+  }
+  textarea{
+    width:100%;
+    background:transparent;
+    border:none;
+    border-bottom:1px solid var(--line);
+    color:var(--ink);
+    font-family:inherit;
+    font-size:14px;
+    padding:6px 0;
+    resize:vertical;
+    min-height:36px;
+  }
+  textarea:focus{outline:none; border-bottom-color:var(--accent);}
+
+  .row{display:flex; gap:8px; margin-top:12px; flex-wrap:wrap; align-items:center;}
+  button{
+    background:none;
+    color:var(--accent);
+    border:1px solid var(--accent);
+    font-weight:500;
+    font-size:12.5px;
+    padding:6px 14px;
+    border-radius:999px;
+    cursor:pointer;
+    font-family:inherit;
+  }
+  button:hover{background:var(--accent); color:#fff;}
+  .err{color:var(--q3); font-size:11.5px; margin-top:8px;}
+
+  .numberline{
+    position:relative;
+    padding:24px 4px 4px;
+    margin-top:16px;
+    border-top:1px solid var(--line);
+    overflow-x:auto;
+  }
+  .nl-track{
+    position:relative;
+  }
+  .nl-base{
+    position:absolute; left:0; right:0; height:1px; background:var(--line);
+  }
+  .nl-datalabel{
+    position:absolute;
+    transform:translateX(-50%);
+    font-size:11px;
+    font-weight:500;
+    color:var(--ink);
+    white-space:nowrap;
+    line-height:1.4;
+  }
+  .nl-datalabel.dupe{color:var(--dim);}
+  .nl-stem{
+    position:absolute;
+    width:1px;
+    background:var(--line);
+    transform:translateX(-50%);
+  }
+  .nl-marker{
+    position:absolute; width:1px; transform:translateX(-50%);
+  }
+  .nl-marker .lbl{
+    position:absolute; top:-17px; left:50%; transform:translateX(-50%);
+    font-size:10.5px; font-weight:600;
+    white-space:nowrap;
+  }
+  .nl-marker .valtag{
+    position:absolute; bottom:-16px; left:50%; transform:translateX(-50%);
+    font-size:10px;
+    white-space:nowrap;
+  }
+
+  .answers{
+    margin-top:20px;
+    border-top:1px solid var(--line);
+    padding-top:16px;
+  }
+  .answer-row{
+    display:flex;
+    gap:16px;
+    flex-wrap:wrap;
+    margin-top:18px;
+  }
+  .answer-field{
+    flex:1;
+    min-width:80px;
+  }
+  .answer-field label{
+    font-weight:600;
+    margin-bottom:5px;
+  }
+  .answer-field.q1 label{color:var(--q1);}
+  .answer-field.q2 label{color:var(--q2);}
+  .answer-field.q3 label{color:var(--q3);}
+  .answer-field input{
+    width:100%;
+    background:transparent;
+    border:none;
+    border-bottom:1px solid var(--line);
+    color:var(--ink);
+    font-family:inherit;
+    font-size:14px;
+    padding:5px 0;
+  }
+  .answer-field input:focus{outline:none; border-bottom-color:var(--accent);}
+  .answer-field input.benar{border-bottom-color:#3d7a4d;}
+  .answer-field input.salah{border-bottom-color:var(--q3);}
+  .feedback{
+    font-size:11.5px;
+    margin-top:10px;
+    min-height:14px;
+  }
+  .feedback.benar{color:#3d7a4d;}
+  .feedback.salah{color:var(--q3);}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="card">
+    <label for="input">Masukkan angka yang sudah diurutkan dari kecil ke besar (pisahkan dengan spasi atau koma)</label>
+    <textarea id="input" placeholder="Contoh: 3, 5, 7, 8, 9, 11, 12, 15, 18, 20"></textarea>
+    <div class="row">
+      <button onclick="hitung()">Tampilkan</button>
+    </div>
+    <div class="err" id="err"></div>
+    <div id="hasil"></div>
+  </div>
+</div>
+
+<script>
+function parseData(str){
+  return str.split(/[\s,;]+/).map(s=>s.trim()).filter(Boolean).map(Number);
+}
+
+function fmt(n){
+  return Number.isInteger(n) ? n : Math.round(n*100)/100;
+}
+
+function median(arr){
+  const n = arr.length;
+  const mid = Math.floor(n/2);
+  if(n % 2 === 1) return arr[mid];
+  return (arr[mid-1] + arr[mid]) / 2;
+}
+
+function isTerurut(arr){
+  for(let i=1;i<arr.length;i++){
+    if(arr[i] < arr[i-1]) return false;
+  }
+  return true;
+}
+
+let state = null;
+
+function hitung(){
+  const raw = document.getElementById('input').value;
+  const errEl = document.getElementById('err');
+  const nums = parseData(raw).filter(n=>!isNaN(n));
+  errEl.textContent = '';
+
+  if(nums.length < 4){
+    errEl.textContent = 'Masukkan minimal 4 angka supaya bisa dibagi menjadi 4 bagian.';
+    document.getElementById('hasil').innerHTML='';
+    state = null;
+    return;
+  }
+
+  if(!isTerurut(nums)){
+    errEl.textContent = 'Data belum terurut dari kecil ke besar. Urutkan dulu, ya.';
+    document.getElementById('hasil').innerHTML='';
+    state = null;
+    return;
+  }
+
+  const sorted = nums;
+  const n = sorted.length;
+  const isOdd = n % 2 === 1;
+
+  const q2 = median(sorted);
+  const half = Math.floor(n/2);
+  const bawah = sorted.slice(0, half);
+  const atas = isOdd ? sorted.slice(half+1) : sorted.slice(half);
+  const q1 = median(bawah);
+  const q3 = median(atas);
+
+  const min = sorted[0], max = sorted[n-1];
+  const range = max-min || 1;
+  const pos = v => ((v-min)/range*100);
+
+  const minGapPct = 8;
+  const rowsLastX = [];
+  const dataLabels = sorted.map(v => {
+    const x = pos(v);
+    let row = rowsLastX.findIndex(lastX => (x - lastX) >= minGapPct);
+    if(row === -1){
+      row = rowsLastX.length;
+      rowsLastX.push(x);
+    } else {
+      rowsLastX[row] = x;
+    }
+    return { v, x, row };
+  });
+  const maxRow = Math.max(0, ...dataLabels.map(d=>d.row));
+  const baselineY = 26;
+  const rowGap = 19;
+  const trackHeight = baselineY + 16 + (maxRow+1)*rowGap + 32;
+  const dupeCount = {};
+  sorted.forEach(v => dupeCount[v] = (dupeCount[v]||0) + 1);
+
+  state = { sorted, n, min, max, range, pos, baselineY, trackHeight, q1, q2, q3 };
+
+  const html = `
+  <div class="numberline">
+    <div class="nl-track" id="nlTrack" style="height:${trackHeight}px; min-width:${Math.max(400, n*40)}px;">
+      <div class="nl-base" style="top:${baselineY}px;"></div>
+      ${dataLabels.map(d => {
+        const y = baselineY + 10 + d.row*rowGap;
+        const isDupe = dupeCount[d.v] > 1;
+        return `
+        <div class="nl-stem" style="left:${d.x}%; top:${baselineY}px; height:${y-baselineY}px;"></div>
+        <div class="nl-datalabel${isDupe ? ' dupe' : ''}" style="left:${d.x}%; top:${y}px;">${fmt(d.v)}</div>
+        `;
+      }).join('')}
+    </div>
+  </div>
+
+  <div class="answers">
+    <label>Isi nilai Q1, Q2 (median), dan Q3 menurut hitunganmu, lalu cek jawabannya</label>
+    <div class="answer-row">
+      <div class="answer-field q1">
+        <label for="ansQ1">Q1</label>
+        <input type="number" step="any" id="ansQ1" placeholder="Q1" oninput="cekJawaban()">
+      </div>
+      <div class="answer-field q2">
+        <label for="ansQ2">Q2</label>
+        <input type="number" step="any" id="ansQ2" placeholder="Q2" oninput="cekJawaban()">
+      </div>
+      <div class="answer-field q3">
+        <label for="ansQ3">Q3</label>
+        <input type="number" step="any" id="ansQ3" placeholder="Q3" oninput="cekJawaban()">
+      </div>
+    </div>
+    <div class="feedback" id="feedback"></div>
+  </div>
+  `;
+
+  document.getElementById('hasil').innerHTML = html;
+}
+
+function cekJawaban(){
+  if(!state) return;
+  const { pos, baselineY, trackHeight, q1, q2, q3 } = state;
+
+  const raw = {
+    q1: parseFloat(document.getElementById('ansQ1').value),
+    q2: parseFloat(document.getElementById('ansQ2').value),
+    q3: parseFloat(document.getElementById('ansQ3').value),
+  };
+
+  const correct = { q1, q2, q3 };
+  const tol = 0.01;
+  let semuaBenar = true;
+
+  // hapus marker lama kalau ada
+  document.querySelectorAll('.nl-marker').forEach(el => el.remove());
+
+  const track = document.getElementById('nlTrack');
+  ['q1','q2','q3'].forEach(key => {
+    const val = raw[key];
+    const input = document.getElementById('ans'+key.charAt(0).toUpperCase()+key.slice(1));
+    if(isNaN(val)){
+      input.classList.remove('benar','salah');
+      semuaBenar = false;
+      return;
+    }
+    const isBenar = Math.abs(val - correct[key]) <= tol;
+    if(!isBenar) semuaBenar = false;
+    input.classList.toggle('benar', isBenar);
+    input.classList.toggle('salah', !isBenar);
+
+    const markColor = isBenar ? '#3d7a4d' : 'var(--q3)';
+    const marker = document.createElement('div');
+    marker.className = 'nl-marker';
+    marker.style.left = pos(val) + '%';
+    marker.style.top = '8px';
+    marker.style.height = (trackHeight-12) + 'px';
+    marker.style.background = markColor;
+    marker.innerHTML = `
+      <div class="lbl" style="color:${markColor}">${key.toUpperCase()}</div>
+      <div class="valtag" style="color:${markColor}">${fmt(val)}</div>
+    `;
+    track.appendChild(marker);
+  });
+
+  const fb = document.getElementById('feedback');
+  if(semuaBenar){
+    fb.textContent = '';
+    fb.className = 'feedback';
+  } else {
+    fb.textContent = 'Coba hitung kembali.';
+    fb.className = 'feedback salah';
+  }
+}
+
+// belum ada data saat halaman dibuka, biarkan kosong sampai siswa mengisi
+</script>
+</body>
+</html>
